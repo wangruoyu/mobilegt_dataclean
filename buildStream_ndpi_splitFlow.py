@@ -359,7 +359,7 @@ def main(argv):
 		#
 	
 		flowFiles=os.listdir(FLOW_DIR)
-		print("开始处理流文件(共%s个文件),统计流属性.若流文件找不到应用名称则将流文件删除" %(len(flowFiles)))
+		print("开始处理流文件(共%s个文件),统计流属性.若流文件找不到应用名称或流包含的报文数目太少无需输出统计特征时,将流文件删除" %(len(flowFiles)))
 		for name in flowFiles:
 			fullName=os.path.join(FLOW_DIR,name)
 			if not (os.path.isfile(fullName) and fullName.endswith('.flow')):
@@ -484,7 +484,11 @@ def main(argv):
 				match=regex_ssl.match(tt[6])
 				if match:
 					encrypted_tag_all[selectedIndex][split_flow]='SSL'
-			
+			#流文件读取完毕,关闭之
+			flowFile.close()
+			#
+			#开始计算流的统计特征,一个流文件包含的多个数据报文可能属于不同应用,分别计算属于不同应用的报文统计特征
+			#
 			for index in range(len(allAppName)):
 				appName=allAppName[index]
 				created='NDPI'
@@ -515,6 +519,7 @@ def main(argv):
 					if len(pktTSs_all[index][split_index])<MIN_PKTNUM or len(in_pktTSs_all[index][split_index])<MIN_PKTNUM or len(out_pktTSs_all[index][split_index])<MIN_PKTNUM:
 						#print 'flow '+flowKey+'( '+flowKey+') split_index ['+str(split_index)+'] in pkts num:'+str(len(in_pktTSs_all[index][split_index]))+'\tout pkts num:'+str(len(out_pktTSs_all[index][split_index]))
 						ff_exceptionLog.write('flow %s( %s) split_index[%s] IN pkts num:%s\tOUT pkts num:%s\n' %(flowKey,flowKey,split_index,len(in_pktTSs_all[index][split_index]),len(out_pktTSs_all[index][split_index])))
+						os.remove(fullName)		#不输出流统计特征的对应流文件均删除
 						continue
 					#narray=numpy.array(L),narray.min(),narray.max(),narray.mean(),narray.sum(),narray.var(),narray.std()
 					pktIntervalArray=numpy.array(pktIntervals)
@@ -582,7 +587,6 @@ def main(argv):
 					out_duration=out_pktIntervalArray.sum()
 					
 					flowFeatureFile.write('%s,%s,%s,%s,%s,%d,%d,%d,%d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%s,%s,%0.5f,%0.5f,%s,%d,%d,%d,%d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%s,%s,%0.5f,%0.5f,%s,%d,%d,%d,%d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%s,%s,%0.5f,%0.5f,%s\n' %(flowKey.replace('-',','),created,destroyed,appName,encrypted_tag,pktCount,totalPktBytes,minPkt,maxPkt,meanPkt,stdPkt,kurtosisPkt,skewnessPkt,standardErrorPkt,minInterval,maxInterval,meanInterval,stdInterval,duration,in_pktCount,in_totalPktBytes,in_minPkt,in_maxPkt,in_meanPkt,in_stdPkt,in_kurtosisPkt,in_skewnessPkt,in_standardErrorPkt,in_minInterval,in_maxInterval,in_meanInterval,in_stdInterval,in_duration,out_pktCount,out_totalPktBytes,out_minPkt,out_maxPkt,out_meanPkt,out_stdPkt,out_kurtosisPkt,out_skewnessPkt,out_standardErrorPkt,out_minInterval,out_maxInterval,out_meanInterval,out_stdInterval,out_duration))
-			flowFile.close()
 	
 		#print "process completed"	
 		flowFeatureFile.close()
