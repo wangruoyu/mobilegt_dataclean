@@ -359,7 +359,7 @@ def main(argv):
 		#
 	
 		flowFiles=os.listdir(FLOW_DIR)
-		print("开始处理流文件(共%s个文件),统计流属性." %(len(flowFiles)))
+		print("开始处理流文件(共%s个文件),统计流属性.若流文件找不到应用名称则将流文件删除" %(len(flowFiles)))
 		for name in flowFiles:
 			fullName=os.path.join(FLOW_DIR,name)
 			if not (os.path.isfile(fullName) and fullName.endswith('.flow')):
@@ -385,7 +385,10 @@ def main(argv):
 				for name in flowApp[flowKey]:
 					allAppName.append(name)
 			else:
-				ff_exceptionLog.write('flow %s( %s) cannot found appName' %(flowKey,flowKey))
+				flowFile.close()
+				os.remove(fullName)
+				continue
+				#ff_exceptionLog.write('flow %s( %s) cannot found appName' %(flowKey,flowKey))
 			#print("allAppName:%s" %(allAppName))
 			#flowkey每一个可能的应用都创建一个数据记录器用于存放属于该应用的报文统计数据
 			for index in range(len(allAppName)):
