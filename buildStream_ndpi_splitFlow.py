@@ -386,7 +386,7 @@ def main(argv):
 					allAppName.append(name)
 			else:
 				flowFile.close()
-				os.remove(fullName)
+				os.remove(fullName)		#找不到对应应用名称的流文件均删除
 				continue
 				#ff_exceptionLog.write('flow %s( %s) cannot found appName' %(flowKey,flowKey))
 			#print("allAppName:%s" %(allAppName))
@@ -489,6 +489,7 @@ def main(argv):
 			#
 			#开始计算流的统计特征,一个流文件包含的多个数据报文可能属于不同应用,分别计算属于不同应用的报文统计特征
 			#
+			outputFeature=False
 			for index in range(len(allAppName)):
 				appName=allAppName[index]
 				created='NDPI'
@@ -519,7 +520,6 @@ def main(argv):
 					if len(pktTSs_all[index][split_index])<MIN_PKTNUM or len(in_pktTSs_all[index][split_index])<MIN_PKTNUM or len(out_pktTSs_all[index][split_index])<MIN_PKTNUM:
 						#print 'flow '+flowKey+'( '+flowKey+') split_index ['+str(split_index)+'] in pkts num:'+str(len(in_pktTSs_all[index][split_index]))+'\tout pkts num:'+str(len(out_pktTSs_all[index][split_index]))
 						ff_exceptionLog.write('flow %s( %s) split_index[%s] IN pkts num:%s\tOUT pkts num:%s\n' %(flowKey,flowKey,split_index,len(in_pktTSs_all[index][split_index]),len(out_pktTSs_all[index][split_index])))
-						os.remove(fullName)		#不输出流统计特征的对应流文件均删除
 						continue
 					#narray=numpy.array(L),narray.min(),narray.max(),narray.mean(),narray.sum(),narray.var(),narray.std()
 					pktIntervalArray=numpy.array(pktIntervals)
@@ -587,6 +587,14 @@ def main(argv):
 					out_duration=out_pktIntervalArray.sum()
 					
 					flowFeatureFile.write('%s,%s,%s,%s,%s,%d,%d,%d,%d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%s,%s,%0.5f,%0.5f,%s,%d,%d,%d,%d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%s,%s,%0.5f,%0.5f,%s,%d,%d,%d,%d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%s,%s,%0.5f,%0.5f,%s\n' %(flowKey.replace('-',','),created,destroyed,appName,encrypted_tag,pktCount,totalPktBytes,minPkt,maxPkt,meanPkt,stdPkt,kurtosisPkt,skewnessPkt,standardErrorPkt,minInterval,maxInterval,meanInterval,stdInterval,duration,in_pktCount,in_totalPktBytes,in_minPkt,in_maxPkt,in_meanPkt,in_stdPkt,in_kurtosisPkt,in_skewnessPkt,in_standardErrorPkt,in_minInterval,in_maxInterval,in_meanInterval,in_stdInterval,in_duration,out_pktCount,out_totalPktBytes,out_minPkt,out_maxPkt,out_meanPkt,out_stdPkt,out_kurtosisPkt,out_skewnessPkt,out_standardErrorPkt,out_minInterval,out_maxInterval,out_meanInterval,out_stdInterval,out_duration))
+					outputFeature=True	#记录输出了流统计特征
+			#
+			#流统计特征输出完毕,检查是否真的输出了流统计特征,没有则删除流文件,然后继续处理下一个流文件
+			#
+			#print('outputFeature:%s' %(outputFeature))
+			if not outputFeature:
+				os.remove(fullName)		#不输出流统计特征的对应流文件均删除
+				#print('need remove file:%s' %(fullName))
 	
 		#print "process completed"	
 		flowFeatureFile.close()
