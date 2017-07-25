@@ -125,10 +125,12 @@ for name in flowFeatureFileNames:
 	appName_byteNums={}		#byteNums={created:appByteNum}	appByteNum={appName:byteNum}
 	for line in flowFeatureFile:
 		#解析每条流，按graphletKey分组构建graphlet，每个graphlet包含的流在{interval}/60分钟内(即第一条流的created时间与最后一条流的created时间差不超过{interval}秒. <流不是按创建时间的从小到大的顺序?该问题应如何处理?>)
+		#flowkey(设备IP<1>,设备端口<2>,协议<3>,对端IP<4>,对端端口<5>),created<6>,destroyed<7>,appName<8>,encrypted_tag<9>,总报文数<10-1>,字节数<11-2>,报文大小(最小<12-3>,最大<13-4>,平均<14-5>,标准差<15-6>,峰度<16-7>,偏度<17-8>,标准误差<18-9>),报文到达时间间隔(最小<19-10>,最大<20-11>,平均<21-12>,标准差<22-13>),流持续时间<23-14>,IN总报文数<24-1>,IN字节数<25-2>,IN报文大小(最小<26-3>,最大<27-4>,平均<28-5>,标准差<29-6>,峰度<30-7>,偏度<31-8>,标准误差<32-9>),IN报文到达时间间隔(最小<33-10>,最大<34-11>,平均<35-12>,标准差<36-13>),IN流持续时间<37-14>,OUT总报文数<38-1>,OUT字节数<39-2>,OUT报文大小(最小<40-3>,最大<41-4>,平均<42-5>,标准差<43-6>,峰度<44-7>,偏度<45-8>,标准误差<46-9>),OUT报文到达时间间隔(最小<47-10>,最大<48-11>,平均<49-12>,标准差<50-13>),OUT流持续时间<51-14>
+
 
 		#graphlet：deviceIP-protocol-devicePort-internetPort-internetIP
 		l1=line.split(',')
-		if line.startswith('#') or len(l1)!=42:
+		if line.startswith('#') or len(l1)!=51:
 			#print line
 			continue		
 		created=l1[5].strip()
