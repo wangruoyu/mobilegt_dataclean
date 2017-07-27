@@ -148,7 +148,26 @@ def main(argv):
 		EXCEPTION_LOG=FLOW_DIR+os.path.sep+'exception.log'
 		exceptionLog=open(EXCEPTION_LOG,'w')
 		#exceptionLog=open(EXCEPTION_LOG,'a')
-	
+
+		#
+		#处理.dpi文件得到应用名称列表
+		#
+		#flowAppMapList={flowkey:appList}
+		#applist={appName:[timestamp_list]}
+		#timestamp格式为'20160108113050'
+		#
+		print('开始处理.dpi文件')
+		input_ndpiFileDir=WORKING_DIR
+		input_ndpiFile=""
+		#input_userIPPrefix=UserIP_prefix
+		NDPI_DIR=input_ndpiFileDir
+		NDPI_FILE=input_ndpiFile
+		#UserIP_prefix=input_userIPPrefix
+		flowAppMapList=cacheNdpiFile(NDPI_DIR,UserIP_prefix,NDPI_FILE)
+		print('.dpi文件处理完毕')
+		#flowAppMapList:{flowkey--->{appname:[filename_time_list]}------timestamp-----格式为'20160108113050'
+		#flowkey=ipUser+'-'+portUser+'-'+protocol+'-'+ipInternet+'-'+portInternet
+		
 		if input_skip_pcap=='False' or input_skip_pcap=='false':
 			#
 			print '开始处理.pcap文件进行组流'
@@ -258,6 +277,13 @@ def main(argv):
 					#else:		
 						#print('%s.%s' %(timeStr,tt[1]),ipUser,portUser,ipInternet,portInternet,protocol,direction,binascii.hexlify(str(payload)))
 					flowKey=ipUser+'-'+str(portUser)+'-'+protocol+'-'+ipInternet+'-'+str(portInternet)
+					#
+					#.dpi文件处理结果中没有该报文对应的flowkey,
+					#即该报文所属的流没有对应已识别出的应用名称,丢弃,无需组流,继续下一个报文处理
+					#
+					if not flowAppMapList.has_key(flowkey):
+						continue
+					
 					if flowFiles.has_key(flowKey):
 						flowFile=flowFiles.get(flowKey)
 					else:
@@ -314,26 +340,7 @@ def main(argv):
 			exceptionLog.close()
 		else:
 			print('跳过.pcap文件组流')
-		
-		#
-		#处理.dpi文件得到应用名称列表
-		#
-		#flowAppMapList={flowkey:appList}
-		#applist={appName:[timestamp_list]}
-		#timestamp格式为'20160108113050'
-		#
-		print('开始处理.dpi文件')
-		input_ndpiFileDir=WORKING_DIR
-		input_ndpiFile=""
-		input_userIPPrefix=UserIP_prefix
-		NDPI_DIR=input_ndpiFileDir
-		NDPI_FILE=input_ndpiFile
-		UserIP_prefix=input_userIPPrefix
-		flowAppMapList=cacheNdpiFile(NDPI_DIR,UserIP_prefix,NDPI_FILE)
-		print('.dpi文件处理完毕')
-		#flowAppMapList:{flowkey--->{appname:[filename_time_list]}------timestamp-----格式为'20160108113050'
-		#flowkey=ipUser+'-'+portUser+'-'+protocol+'-'+ipInternet+'-'+portInternet
-		
+			
 		#
 		#开始处理前面处理组流生成的流文件
 		#	
