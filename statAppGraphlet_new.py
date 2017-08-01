@@ -7,6 +7,7 @@ import os
 import time
 import datetime
 import re
+import math
 
 def usage():
 	print 'python statAppGraphlet.py -r <root data directory> -o <result directory> -i <interval> -d <delimiter> -n <need_createdTime>'
@@ -24,6 +25,45 @@ def usage():
 	print '\tpython statAppGraphlet.py -r D:\\MobileGT\\data_new_clean -o D:\\MobileGT\\data_output -i 180 -d ,'
 	print '\tpython statAppGraphlet.py -r D:\\MobileGT\\data_new_clean -o D:\\MobileGT\\data_output -i 180 -d , -n True'
 	print 'result:\tplease see {FLOW_FILE_PREFIX}_statGraphletResult.graphlet in output root directory'
+
+def getPktsizeBinDistrbute(flowDirName,flowFileNames,createdTime,interval):
+	pktsizeBinDist={}
+	pktsizeBinDist["TCP"]={}
+	pktsizeBinDist["UDP"]={}
+	for k in range(12):
+		pktsizeBinDist["TCP"][k]=0
+		pktsizeBinDist["UDP"][k]=0
+	#读文件,统计报文大小分布
+	print("flowFileNames:%s" %(flowFileNames))
+	for flowFileName in flowFileNames:
+		if not ("-TCP-" in flowFileName or "-UDP-" in flowFileName):
+			print("flowFileName(%s) is ERROR!" %(flowFileName))
+			continue
+		
+		absFileName=os.path.join(flowDirName,flowFileName)
+		flowFile=open(absFileName,'r')
+		##pkt_position(pcapFile-index)|packet_direction(1:output,0:input)|ip.len|payload.len|timestamp|timestamp-distance(2016-01-01 0:0:0)|payload
+		#/home/liuzhen/mergedata/94346c37/20160824/1_00001_20160824145135-83823|0|84|56|2016-08-24 17:37:42.15774|20453862.15774|d8998180000100010000000006706c61796572036c6f670768756e616e747603636f6d0000010001c00c0001000100000127000478842fed
+		for line in flowFile:
+			if line.startswith('#'):
+				continue
+			tt=line.split('|')
+			tttime=tt[4].split('.')
+			pkttimestamp=time.mktime(time.strptime(tttime[0],"%Y-%m-%d %H:%M:%S"))+float('0.'+tttime[1]) #秒数表示的时间
+			pktsize=int(tt[2])+int(tt[3])
+			k=int(math.log(pktsize,2))
+			if k>11:
+				k=11
+			if abs(pkttimestamp-eval(createdTime))<interval:
+				if "-TCP-" in flowFileName:
+					pktsizeBinDist["TCP"][k]+=1
+				else:
+					#"-UDP-" in flowFileName:
+					pktsizeBinDist["UDP"][k]+=1					
+		
+		flowFile.close()
+		
+	return pktsizeBinDist
 	
 def find_file_by_pattern(pattern='.*', base=".", circle=True): 
 	'''''查找给定文件夹下面所有 ''' 
@@ -75,8 +115,10 @@ for op, value in opts:
 		delimiter=value
 		print("delimiter:["+delimiter+"]")
 	elif op in("-n","--need_createdTime"):
-		need_createdTime=value
-		print("need_createdTime:["+need_createdTime+"]")
+		print("value:"+value)
+		if value=="True" or value=='true':
+			need_createdTime=True
+		print("need_createdTime:["+str(need_createdTime)+"]")
 	elif op == '-h':
 		usage()
 		sys.exit()
@@ -118,14 +160,15 @@ for name in flowFeatureFileNames:
 	#	index 9:destroyedList=[]
 	
 	print("process file:"+name)
-	graphlets={}
-	#appNames={}		#appNames={created:appName},如果appName可能有多个则用|线分割
+	graphlets={}			#
+	#appNames={}			#appNames={created:appName},如果appName可能有多个则用|线分割
 	appName_flowNums={}		#flowNums={created:appFlowNum}	appFlowNum={appName:flowNum}
 	appName_pktNums={}		#pktNums={created:appPktNum}	appPktNum={appName:pktNum}
 	appName_byteNums={}		#byteNums={created:appByteNum}	appByteNum={appName:byteNum}
 	for line in flowFeatureFile:
 		#解析每条流，按graphletKey分组构建graphlet，每个graphlet包含的流在{interval}/60分钟内(即第一条流的created时间与最后一条流的created时间差不超过{interval}秒. <流不是按创建时间的从小到大的顺序?该问题应如何处理?>)
 		#flowkey(设备IP<1>,设备端口<2>,协议<3>,对端IP<4>,对端端口<5>),created<6>,destroyed<7>,appName<8>,encrypted_tag<9>,总报文数<10-1>,字节数<11-2>,报文大小(最小<12-3>,最大<13-4>,平均<14-5>,标准差<15-6>,峰度<16-7>,偏度<17-8>,标准误差<18-9>),报文到达时间间隔(最小<19-10>,最大<20-11>,平均<21-12>,标准差<22-13>),流持续时间<23-14>,IN总报文数<24-1>,IN字节数<25-2>,IN报文大小(最小<26-3>,最大<27-4>,平均<28-5>,标准差<29-6>,峰度<30-7>,偏度<31-8>,标准误差<32-9>),IN报文到达时间间隔(最小<33-10>,最大<34-11>,平均<35-12>,标准差<36-13>),IN流持续时间<37-14>,OUT总报文数<38-1>,OUT字节数<39-2>,OUT报文大小(最小<40-3>,最大<41-4>,平均<42-5>,标准差<43-6>,峰度<44-7>,偏度<45-8>,标准误差<46-9>),OUT报文到达时间间隔(最小<47-10>,最大<48-11>,平均<49-12>,标准差<50-13>),OUT流持续时间<51-14>
+		#10.0.0.2,44837,TCP,119.147.248.115,80,1472031970,1472031999,携程旅行,normal,42,36153,40,1500,860.785714286,691.770521258,-1.89043579273,-0.206937434636,106.742508835,8.10623168945e-06,47.9999928474,2.44203821624,8.30611891618,100.123566866,27,34693,40,1500,1284.92592593,487.27412058,2.24424277872,-2.0467058686,93.7759482287,8.10623168945e-06,47.9999928474,3.84187365495,10.1735221014,99.8887150288,15,1460,40,241,97.3333333333,76.6469539875,-0.56226312304,1.15492342116,19.7901584221,7.79628753662e-05,1.60447883606,0.422645279339,0.483986338926,5.91703391075
 
 
 		#graphlet：deviceIP-protocol-devicePort-internetPort-internetIP
@@ -145,7 +188,7 @@ for name in flowFeatureFileNames:
 		foundcreated='-1'
 		for createdtime in graphlets:
 			if abs(eval(created)-eval(createdtime))<=interval:
-				foundcreated=createdtime
+				p=createdtime
 				break
 		if eval(foundcreated)<0:
 			foundcreated=created
@@ -159,7 +202,9 @@ for name in flowFeatureFileNames:
 			graphlets[foundcreated][6]=set()	#grapletEdge1
 			graphlets[foundcreated][7]=set()	#grapletEdge2
 			graphlets[foundcreated][8]=set()	#grapletEdge3
-			graphlets[foundcreated][9]=[]		#destroyed
+			graphlets[foundcreated][9]=[]		#destroyed			
+			graphlets[foundcreated][10]=set()	#flowFileNames
+			
 			#if appName=='贪吃蛇大作战':
 			#	print foundcreated+':'+destroyed
 		graphlets[foundcreated][0].add(deviceIP)
@@ -172,6 +217,8 @@ for name in flowFeatureFileNames:
 		graphlets[foundcreated][7].add(devicePort+'-'+internetPort)
 		graphlets[foundcreated][8].add(internetPort+'-'+internetIP)
 		graphlets[foundcreated][9].append(destroyed)
+		graphlets[foundcreated][10].add(deviceIP+'-'+devicePort+'-'+protocol+'-'+internetIP+'-'+internetPort+'.flow')
+		
 		#if appName=='贪吃蛇大作战':
 		#	print '==========='+str(appName_graphlets['贪吃蛇大作战'][foundcreated][9])
 		
@@ -199,7 +246,7 @@ for name in flowFeatureFileNames:
 		
 	print("preprocess file completed!")
 	print("compute feature...")
-	statGraphletResult.write('#n1\t#n2\t#n3\t#n4\t#n5\t#o12<o-1>\t#o21<o-2>\t#o23<o-3>\t#o32<o-4>\t#o34<o-5>\t#o43<o-6>\t#o45<o-7>\t#o54<o-8>\t#u12<u-1>\t#u21<u-2>\t#u23<u-3>\t#u32<u-4>\t#u34<u-5>\t#u43<u-6>\t#u45<u-7>\t#u54<u-8>\t#alpha12<a-1>\t#alpha21<a-2>\t#alpha23<a-3>\t#alpha32<a-4>\t#alpha34<a-5>\t#alpha43<a-6>\t#alpha45<a-7>\t#alpha54<a-8>\t#beta21<b-1>\t#beta23<b-2>\t#beta32<b-3>\t#beta34<b-4>\t#beta43<b-5>\t#beta45<b-6>\t#flow\t#pkt\t#byte\t#appName-flowNum-pktNum-byteNum|appName-flowNum-pktNum-byteNum...')
+	statGraphletResult.write('#n1\t#n2\t#n3\t#n4\t#n5\t#o12<o-1>\t#o21<o-2>\t#o23<o-3>\t#o32<o-4>\t#o34<o-5>\t#o43<o-6>\t#o45<o-7>\t#o54<o-8>\t#u12<u-1>\t#u21<u-2>\t#u23<u-3>\t#u32<u-4>\t#u34<u-5>\t#u43<u-6>\t#u45<u-7>\t#u54<u-8>\t#alpha12<a-1>\t#alpha21<a-2>\t#alpha23<a-3>\t#alpha32<a-4>\t#alpha34<a-5>\t#alpha43<a-6>\t#alpha45<a-7>\t#alpha54<a-8>\t#beta21<b-1>\t#beta23<b-2>\t#beta32<b-3>\t#beta34<b-4>\t#beta43<b-5>\t#beta45<b-6>\t#flow\t#pkt\t#byte\t#tcp_sizebin<tb-0>|<tb-1>|<tb-2>|<tb-3>|<tb-4>|<tb-5>|<tb-6>|<tb-7>|<tb-8>|<tb-9>|<tb-10>|<tb-11>\t#udp_sizebin<ub-0>|<ub-1>|<ub-2>|<ub-3>|<ub-4>|<ub-5>|<ub-6>|<ub-7>|<ub-8>|<ub-9>|<ub-10>|<ub-11>\t#appName-flowNum-pktNum-byteNum|appName-flowNum-pktNum-byteNum...')
 	if(not need_createdTime):
 		statGraphletResult.write('\t#createdTime\t#destroyedList')
 	statGraphletResult.write('\n')
@@ -424,6 +471,7 @@ for name in flowFeatureFileNames:
 			statGraphletResult.write(delimiter+str(alpha[i]))			
 		for i in range(6):
 			statGraphletResult.write(delimiter+str(beta[i]))
+		
 		totalFlowNum=0
 		totalPktNum=0
 		totalByteNum=0
@@ -433,6 +481,23 @@ for name in flowFeatureFileNames:
 			totalByteNum+=appName_byteNums[createdTime][appName]
 		statGraphletResult.write(delimiter+str(totalFlowNum)+delimiter+str(totalPktNum)+delimiter+str(totalByteNum))
 		
+		#tcp_pktsizeBin=pktsizeBinDist["TCP"],{k:pktcount},k=0-11;udp_pktsizeBin=pktsizeBinDist["UDP"],{k:pktcount},k=0-11
+		#pktsizeBin,12个桶需依据flowkey(设备IP<1>,设备端口<2>,协议<3>,对端IP<4>,对端端口<5>)读取.flow文件处理得到,2^0-2^1,2^1-2^2,2^2-2^3,2^3-2^4,.....,2^10-2^11,2^11-infinite
+		flowFileNames=graphlets[createdTime][10]
+		pktsizeBinDist=getPktsizeBinDistrbute(flowDirName,flowFileNames,createdTime,interval)
+		tcp_pktsizeBin=pktsizeBinDist["TCP"]
+		udp_pktsizeBin=pktsizeBinDist["UDP"]
+		statGraphletResult.write(delimiter)
+		for k in range(12):
+			statGraphletResult.write(str(tcp_pktsizeBin[k]))
+			if k<11:
+				statGraphletResult.write('|')
+		statGraphletResult.write(delimiter)
+		for k in range(12):
+			statGraphletResult.write(str(udp_pktsizeBin[k]))
+			if k<11:
+				statGraphletResult.write('|')
+				
 		statGraphletResult.write(delimiter)
 		first=True
 		for appName,fn in sorted(appName_flowNums[createdTime].iteritems(),key=lambda d:d[1],reverse=True):
