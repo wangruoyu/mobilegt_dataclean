@@ -103,8 +103,8 @@ def cacheNdpiFile(NDPI_DIR,UserIP_prefix,NDPI_FILE):
 		ndipFile=open(dpiFileName,'r')
 		timestamp=''
 		for line in ndipFile:
-			if ".pcap" in line:
-				ll=line.split()			#Reading packets from pcap file 1_00001_20160108113050.pcap...
+			if "Reading packets from pcap file" in line and ".pcap" in line:
+				ll=line.split()				#Reading packets from pcap file 1_00001_20160108113050.pcap...
 				fn=ll[5].split(".")			#1_00001_20160108113050.pcap
 				ts=fn[0].split("_")			#1_00001_20160108113050
 				timestamp=ts[2]				#20160108113050
