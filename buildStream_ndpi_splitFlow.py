@@ -367,6 +367,7 @@ def main(argv):
 	
 		flowFiles=os.listdir(FLOW_DIR)
 		print("开始处理流文件(共%s个文件),统计流属性.若流文件找不到应用名称或流包含的报文数目太少无需输出统计特征时,将流文件删除" %(len(flowFiles)))
+		#开始依次处理每个流文件,每个流文件包含多个报文,可能分属不同的应用. 同一个应用的所有报文若间隔时间超过阈值也分割为多个流进行统计特征计算
 		for name in flowFiles:
 			fullName=os.path.join(FLOW_DIR,name)
 			if not (os.path.isfile(fullName) and fullName.endswith('.flow')):
@@ -377,7 +378,7 @@ def main(argv):
 			#skip=flowKey.find('-')
 			#flowkey_skipIpUser=flowKey[skip:]
 			
-			payloadBytes_all=[]#列表,里面存放的是字典{分割的流编号:[属于该流的报文数据]}
+			payloadBytes_all=[]			#列表,里面存放的是字典{分割的流编号:[属于该流的报文数据]}
 			ipBytes_all=[]
 			pktTSs_all=[]
 			in_payloadBytes_all=[]
@@ -386,8 +387,10 @@ def main(argv):
 			out_payloadBytes_all=[]
 			out_ipBytes_all=[]
 			out_pktTSs_all=[]
-			encrypted_tag_all=[]#'normal'
-			allAppName=[]#保存flowkey对应的所有可能的appName
+			encrypted_tag_all=[]		#'normal'
+			allAppName=[]				#保存flowkey对应的所有可能的appName
+			allAppLastTS=[]				#保存每个应用所包含的报文的组流时最后一个报文的时间标记
+			allAppSplit=[]				#保存没有应用所包含的报文组流时分割流的数目
 			if flowApp.has_key(flowKey):
 				for name in flowApp[flowKey]:
 					allAppName.append(name)
@@ -409,10 +412,13 @@ def main(argv):
 				out_ipBytes_all.append({0:[]})
 				out_pktTSs_all.append({0:[]})
 				encrypted_tag_all.append({0:'normal'})
+				allAppLastTS.append(0)
+				allAppSplit.append(0)
+				
 			#pkt_position(pcapFile-index)|packet_direction(1:output,0:input)|ip.len|payload.len|timestamp|timestamp-distance(2016-01-01 0:0:0)|payload
 			#flow文件内容：/home/liuzhen/mergedata/44cd4ccc/20160615/20160615-17625|1|65|13|2016-06-15 23:14:56.842539|14426096.842539|0c000401083d10d45abecfe95a
-			lasttimestamp=0
-			split_flow=0
+			#lasttimestamp=0
+			#split_flow=0
 			for line in flowFile:
 				if line.startswith('#'):
 					continue
@@ -458,11 +464,16 @@ def main(argv):
 					isOutFlow=True
 				else:
 					isOutFlow=False
+				lasttimestamp=allAppLastTS[selectedIndex]
+				split_flow=allAppSplit[selectedIndex]
 				if lasttimestamp==0:
 					lasttimestamp=pkttimestamp
+					allAppLastTS[selectedIndex]=lasttimestamp
 				if (pkttimestamp-lasttimestamp)>FLOW_MAX_INTERVAL:
 					lasttimestamp=pkttimestamp
+					allAppLastTS[selectedIndex]=lasttimestamp
 					split_flow=split_flow+1
+					allAppSplit[selectedIndex]=split_flow
 					payloadBytes_all[selectedIndex][split_flow]=[]
 					ipBytes_all[selectedIndex][split_flow]=[]
 					pktTSs_all[selectedIndex][split_flow]=[]
@@ -473,7 +484,7 @@ def main(argv):
 					out_ipBytes_all[selectedIndex][split_flow]=[]
 					out_pktTSs_all[selectedIndex][split_flow]=[]
 					encrypted_tag_all[selectedIndex][split_flow]='normal'
-						
+				#print("selectedIndex:%s\tsplit_flow:%s\ttt[2]:%s" %(selectedIndex,split_flow,tt[2]))
 				ipBytes_all[selectedIndex][split_flow].append(int(tt[2]))
 				payloadBytes_all[selectedIndex][split_flow].append(int(tt[3]))
 				if isOutFlow:
@@ -505,8 +516,7 @@ def main(argv):
 					#不考虑方向统计
 					pktTSArray=numpy.array(pktTSs_all[index][split_index])
 					pktTSArray.sort()
-					created=pktTSArray[0]		#设置created时间为报文的最小时间
-					destroyed='NDPI'			#destroyed时间统一设置为NDPI标识
+					#print("split_index:%s\npktTSArray:%s" %(split_index,pktTSArray))
 					pktIntervals=[]
 					for i in range(1,len(pktTSArray)):
 						pktIntervals.append(pktTSArray[i]-pktTSArray[i-1])
@@ -528,6 +538,8 @@ def main(argv):
 						#print 'flow '+flowKey+'( '+flowKey+') split_index ['+str(split_index)+'] in pkts num:'+str(len(in_pktTSs_all[index][split_index]))+'\tout pkts num:'+str(len(out_pktTSs_all[index][split_index]))
 						ff_exceptionLog.write('flow %s( %s) split_index[%s] IN pkts num:%s\tOUT pkts num:%s\n' %(flowKey,flowKey,split_index,len(in_pktTSs_all[index][split_index]),len(out_pktTSs_all[index][split_index])))
 						continue
+					created=pktTSArray[0]		#设置created时间为报文的最小时间
+					destroyed='NDPI'			#destroyed时间统一设置为NDPI标识
 					#narray=numpy.array(L),narray.min(),narray.max(),narray.mean(),narray.sum(),narray.var(),narray.std()
 					pktIntervalArray=numpy.array(pktIntervals)
 					ipByteArray=numpy.array(ipBytes_all[index][split_index])
