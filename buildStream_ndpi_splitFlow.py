@@ -281,7 +281,7 @@ def main(argv):
 					#.dpi文件处理结果中没有该报文对应的flowkey,
 					#即该报文所属的流没有对应已识别出的应用名称,丢弃,无需组流,继续下一个报文处理
 					#
-					if not flowAppMapList.has_key(flowkey):
+					if not flowAppMapList.has_key(flowKey):
 						continue
 					
 					if flowFiles.has_key(flowKey):
@@ -499,14 +499,14 @@ def main(argv):
 			outputFeature=False
 			for index in range(len(allAppName)):
 				appName=allAppName[index]
-				created='NDPI'
-				destroyed='NDPI'
 				
 				for split_index in pktTSs_all[index]:
 					encrypted_tag=encrypted_tag_all[index][split_index]
 					#不考虑方向统计
 					pktTSArray=numpy.array(pktTSs_all[index][split_index])
 					pktTSArray.sort()
+					created=pktTSArray[0]		#设置created时间为报文的最小时间
+					destroyed='NDPI'			#destroyed时间统一设置为NDPI标识
 					pktIntervals=[]
 					for i in range(1,len(pktTSArray)):
 						pktIntervals.append(pktTSArray[i]-pktTSArray[i-1])
