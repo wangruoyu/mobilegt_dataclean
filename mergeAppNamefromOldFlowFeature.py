@@ -107,7 +107,10 @@ for name in flowFeatureFileNames:
 		appName=l1[7]
 		#appName='NO_SOCKET'
 		if appName=='NO_SOCKET':
-			appName=flowkeyAppNames[flowkey]
+			if flowkeyAppNames.has_key(flowkey):
+				appName=flowkeyAppNames[flowkey]
+			else:
+				appName="NOTFOUND"
 		else:
 			print('old appName is not NO_SOCKET,do not replace.')
 			
